@@ -26,11 +26,17 @@ logger = logging.getLogger(__name__)
               prompt=True,
               hide_input=True,
               help='Password associated with the Username that is able to query Jira')
-def main(username, password):
+@click.option('-s', '--server',
+              required=True,
+              help='Jira server URL')
+@click.option('-k', '--key',
+              required=True,
+              help='Issue key to analyse')
+def main(username, password, server, key):
     logging.basicConfig(level=logging.DEBUG if True else logging.INFO,
                         format='%(levelname)s: %(message)s')
 
-    jira = Jira(url='https://jira.tomtomgroup.com', username=username, password=password)
-    jira.get_issue('PIPE-100')
+    jira = Jira(url=server, username=username, password=password)
+    print(jira.get_issue(key))
 
     return 0
