@@ -8,10 +8,10 @@
 # to use this Software in accordance with the terms of your license agreement. If you are
 # not the licensee, then you are not authorized to use this software in any manner and should
 # immediately return it to TomTom N.V.
-from .jira import Jira
-
-import click
 import logging
+import click
+
+from .jira import Jira
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,11 @@ logger = logging.getLogger(__name__)
 @click.option('-k', '--key',
               required=True,
               help='Issue key to analyse')
-def main(username, password, server, key):
-    logging.basicConfig(level=logging.DEBUG if True else logging.INFO,
+@click.option('--verbose',
+              is_flag=True,
+              help='Increase verbosity for more logging')
+def main(username, password, server, key, verbose):
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO,
                         format='%(levelname)s: %(message)s')
 
     jira = Jira(url=server, username=username, password=password)
