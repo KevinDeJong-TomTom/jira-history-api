@@ -20,7 +20,7 @@ setup(
     python_requires='>=3.5',
     install_requires=(
         'Click>=7,<8',
-        'atlassian-python-api==1.17.0',
+        'atlassian-python-api==1.17.2',
     ),
     setup_requires=(
         'setuptools_scm',
