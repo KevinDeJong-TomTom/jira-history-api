@@ -40,6 +40,6 @@ def main(username, password, server, key, verbose):
                         format='%(levelname)s: %(message)s')
 
     jira = Jira(url=server, username=username, password=password)
-    print(jira.get_issue(key))
+    jira.get_issue(key)
 
     return 0
