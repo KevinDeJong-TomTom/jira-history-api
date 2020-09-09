@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 class Jira():
 
     def __init__(self: object, url: str, username: str, password: str):
-        self.jira = atlassian.Jira(url=url,
-                                   username=username,
-                                   password=password)
+        self._jira = atlassian.Jira(url=url,
+                                    username=username,
+                                    password=password)
 
-        self.fields = None
-        self.statuses = None
-        self.resolutions = None
-        self.users = {}
-        self.versions = {}
+        self._fields = None
+        self._statuses = None
+        self._resolutions = None
+        self._users = {}
+        self._versions = {}
 
     def _get_user(self: object, username: str) -> dict:
         """
@@ -42,13 +42,12 @@ class Jira():
             return None
 
         try:
-            _user = self.users[username]
+            return self._users[username]
         except KeyError:
             logging.debug(f"Retrieving information for user: '{username}'")
-            _user = self.jira.user(username=username)
-            self.users[username] = _user
+            self._users[username] = self._jira.user(username=username)
 
-        return _user
+        return self._users[username]
 
     def _get_fields(self: object) -> dict:
         """
@@ -56,41 +55,83 @@ class Jira():
         NOTE: All aliases will be expanded.
         :returns: Dictionary containing all items by field ID
         """
-        _fields = self.jira.get_all_fields()
+        _fields = self._jira.get_all_fields()
 
         _fields_dict = {}
         for field in _fields:
             for clause in field['clauseNames']:
                 _fields_dict[clause] = field
 
+        # Special cases
+        _fields_dict['Fix Version'] = _fields_dict['fixVersion']
+
         return _fields_dict
 
-    def _get_resolution(self: object, resolution_id: int) -> dict:
-        if not self.resolutions:
-            self.resolutions = utils.get_from_jira_scheme(self.jira.get_all_resolutions)
+    def _get_version(self: object, project: str, version_id: int) -> dict:
+        """
+        Retrieves the version associated with the given version ID
+        :param project: Project key associated with the version
+        :param version_d: Version ID associated with a version
+        :returns: Version when version ID is known or `None` otherwise
+        """
+        if not version_id:
+            return None
+
+        if not self._versions:
+            _versions = self._jira.get_project_versions(project)
+
+            self._versions[project] = {}
+            for version in _versions:
+                self._versions[project][version['id']] = version
 
         try:
-            return self.resolutions[resolution_id]
+            return self._versions[project][version_id]
+        except KeyError:
+            logger.warning(f"Unknown version: {version_id}")
+
+    def _get_resolution(self: object, resolution_id: int) -> dict:
+        if not self._resolutions:
+            self._resolutions = utils.get_from_jira_scheme(self._jira.get_all_resolutions)
+
+        try:
+            return self._resolutions[resolution_id]
         except KeyError:
             logger.warning(f"Unknown resolution: {resolution_id}")
 
     def _get_status(self: object, status_id: int) -> dict:
-        if not self.statuses:
-            self.statuses = utils.get_from_jira_scheme(self.jira.get_all_statuses)
+        if not self._statuses:
+            self._statuses = utils.get_from_jira_scheme(self._jira.get_all_statuses)
 
         try:
-            return self.statuses[status_id]
+            return self._statuses[status_id]
         except KeyError:
             logger.warning(f"Unknown status: {status_id}")
 
     def _get_field(self: object, field: str) -> dict:
-        if not self.fields:
-            self.fields = self._get_fields()
+        if not self._fields:
+            self._fields = self._get_fields()
 
         try:
-            return self.fields[field]
+            return self._fields[field]
         except KeyError:
             logger.warning(f"Unknown field: {field}")
+
+    def _update_array(self: object, update: dict, issue: dict):
+        if update['field'] == 'Fix Version':
+            _project = issue['fields']['project']['key']
+            _versions = issue['fields']['fixVersions']
+
+            _from = self._get_version(_project, update['from'])
+            _to = self._get_version(_project, update['to'])
+
+            if _from is None:
+                return [version for version in _versions if version['id'] != _to['id']]
+            else:
+                _versions.append(_from)
+                return _versions
+
+        logger.error(f"Unsupport array type: {update['field']}")
+        return None
 
     def _update_field(self: object, update: dict, issue: dict) -> dict:
         """
@@ -101,6 +142,7 @@ class Jira():
         """
         field = self._get_field(update['field'])
 
+        # Special cases
         if not field:
             logger.error(f"Could not update issue for history: {update}")
             return issue
@@ -116,6 +158,8 @@ class Jira():
             _value = self._get_resolution(update['from'])
         elif _field_type == 'user':
             _value = self._get_user(update['from'])
+        elif _field_type == 'array':
+            _value = self._update_array(update, issue)
         else:
             logger.warning(f"Unsupported field type: {field['schema']['type']}")
             return issue
@@ -160,13 +204,28 @@ class Jira():
 
         return issue
 
+    def jql(self: object, jql: str) -> list:
+        """
+        Retrieves issues from Jira using JQL and updates them to the status of 01/08/2018
+        :param jql: JQL to retrieve issue with
+        :returns: Issues reflecting the status of 01/08/2018
+        """
+        _issues = self._jira.jql(jql=jql, expand='changelog')['issues']
+
+        result = []
+        for issue in _issues:
+            result.append(self._update_issue_at_date(issue, datetime.strptime('2018/08/01', '%Y/%m/%d')))
+
+        return result
+
     def get_issue(self: object, key: str) -> dict:
         """
-        Retrieves an issue from Jira and updates it so the status of 01/08/2018
+        Retrieves an issue from Jira and updates it to the status of 01/08/2018
         :param key: Issue key to retrieve
         :returns: Issue reflecting the status of 01/08/2018
         """
-        _issues = self.jira.jql(jql=f'key={key}', expand='schema,changelog')['issues']
+        _issues = self.jql(f'key={key}')
+        if len(_issues) > 0:
+            return _issues[0]
 
-        for issue in _issues:
-            issue = self._update_issue_at_date(issue,  datetime.strptime('2018/08/01', '%Y/%m/%d'))
+        return _issues
