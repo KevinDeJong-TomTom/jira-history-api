@@ -9,6 +9,7 @@
 
 import atlassian
 import contextlib
+import datetime
 import unittest
 from unittest import mock
 
@@ -83,7 +84,7 @@ class TestJiraField(unittest.TestCase):
 
     def test_get_invalid_field(self):
         assert self.uut._get_field(None) is None
-        self.uut._jira.get_all_fields.assert_called_once()
+        self.uut._jira.get_all_fields.assert_not_called()
 
     def test_get_valid_field(self):
         _field_001 = {'id': 'customfield_00001', 'name': 'Test Field', 'clauseNames': ['customfield_00001']}
@@ -158,6 +159,127 @@ class TestJiraVersion(unittest.TestCase):
         self.uut._get_version(project='TEST', version_id='1')
 
         self.uut._jira.get_project_versions.assert_called_once()
+
+
+class TestJiraResolution(unittest.TestCase):
+    def setUp(self):
+        with fake_jira_context():
+            self.uut = jira.Jira(username='ben', password='secret', url='404')
+
+    def test_get_no_resolution(self):
+        assert self.uut._get_resolution(resolution_id=None) is None
+        self.uut._jira.get_all_resolutions.assert_not_called()
+
+    def test_get_invalid_resolution(self):
+        self.uut._jira.get_all_resolutions.return_value = None
+
+        assert self.uut._get_resolution(resolution_id='1') is None
+        self.uut._jira.get_all_resolutions.assert_called_once()
+
+    def test_get_valid_resolution(self):
+        self.uut._jira.get_all_resolutions.return_value = [{
+            'self': 'https://jira-instance/rest/api/2/resolution/1',
+            'id': '1',
+            'description': 'A fix for this issue is checked into the tree and tested.',
+            'name': 'Fixed'
+        }]
+
+        assert self.uut._get_resolution(resolution_id='1')['name'] == 'Fixed'
+        self.uut._jira.get_all_resolutions.assert_called_once()
+
+    def test_get_valid_resolution_from_cache(self):
+        self.uut._jira.get_all_resolutions.return_value = [{'id': '1'}]
+        self.uut._get_resolution(resolution_id='1')
+        self.uut._get_resolution(resolution_id='1')
+
+        self.uut._jira.get_all_resolutions.assert_called_once()
+
+
+class TestJiraStatus(unittest.TestCase):
+    def setUp(self):
+        with fake_jira_context():
+            self.uut = jira.Jira(username='ben', password='secret', url='404')
+
+    def test_get_no_status(self):
+        assert self.uut._get_status(status_id=None) is None
+        self.uut._jira.get_all_statuses.assert_not_called()
+
+    def test_get_invalid_status(self):
+        self.uut._jira.get_all_statuses.return_value = None
+
+        assert self.uut._get_status(status_id='1') is None
+        self.uut._jira.get_all_statuses.assert_called_once()
+
+    def test_get_valid_status(self):
+        self.uut._jira.get_all_statuses.return_value = [{
+            'self': 'https://jira-instance/rest/api/2/status/1',
+            'description': 'The issue is open and ready for the assignee to start work on it.',
+            'iconUrl': 'https://jira-instance/images/icons/statuses/open.png',
+            'name': 'Open',
+            'id': '1',
+            'statusCategory': {
+                'self': 'https://jira-instance/rest/api/2/statuscategory/2',
+                'id': 2,
+                'key': 'new',
+                'colorName': 'blue-gray',
+                'name': 'To Do'
+            }
+        }]
+
+        assert self.uut._get_status(status_id='1')['name'] == 'Open'
+        self.uut._jira.get_all_statuses.assert_called_once()
+
+    def test_get_valid_status_from_cache(self):
+        self.uut._jira.get_all_statuses.return_value = [{'id': '1'}]
+        self.uut._get_status(status_id='1')
+        self.uut._get_status(status_id='1')
+
+        self.uut._jira.get_all_statuses.assert_called_once()
+
+
+class TestJiraUpdate(unittest.TestCase):
+    def setUp(self):
+        with fake_jira_context():
+            self.uut = jira.Jira(username='ben', password='secret', url='404')
+            self.issue001 = {
+                'expand': 'operations,versionedRepresentations,editmeta,changelog,renderedFields',
+                'id': '2109604',
+                'self': 'https://jira-instance/rest/api/2/issue/2109604',
+                'key': 'TEST-100',
+                'fields': {
+                    'created': '2018-01-01T12:00:00.000+0000',
+                    'fixVersions': [],
+                    'resolution': None,
+                    'summary': 'Interesting issue to solve',
+                    'status': {
+                        'self': 'https://jira-instance/rest/api/2/status/1',
+                        'description': 'The issue is open and ready for the assignee to start work on it.',
+                        'iconUrl': 'https://jira-instance/images/icons/statuses/open.png',
+                        'name': 'Open',
+                        'id': '1',
+                        'statusCategory': {
+                            'self': 'https://jira-instance/rest/api/2/statuscategory/2',
+                            'id': 2,
+                            'key': 'new',
+                            'colorName': 'blue-gray',
+                            'name': 'To Do'
+                        }
+                    },
+                    'assignee': None
+                },
+                'changelog': {
+                    'histories': []
+                }
+            }
+
+    def test_update_issue_without_issue(self):
+        assert self.uut._update_issue_at_date(issue=None, date=datetime.datetime.now()) is None
+
+    def test_update_issue_without_date(self):
+        assert self.uut._update_issue_at_date(issue=self.issue001, date=None) is None
+
+    def test_update_issue_without_changelog(self):
+        assert self.uut._update_issue_at_date(issue=self.issue001) == self.issue001
 
 
 @contextlib.contextmanager

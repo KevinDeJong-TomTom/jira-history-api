@@ -92,7 +92,10 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown version: {version_id}")
 
-    def _get_resolution(self: object, resolution_id: int) -> dict:
+    def _get_resolution(self: object, resolution_id: str) -> dict:
+        if not resolution_id:
+            return None
+
         if not self._resolutions:
             self._resolutions = utils.get_from_jira_scheme(self._jira.get_all_resolutions)
 
@@ -101,7 +104,10 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown resolution: {resolution_id}")
 
-    def _get_status(self: object, status_id: int) -> dict:
+    def _get_status(self: object, status_id: str) -> dict:
+        if not status_id:
+            return None
+
         if not self._statuses:
             self._statuses = utils.get_from_jira_scheme(self._jira.get_all_statuses)
 
@@ -111,6 +117,9 @@ class Jira():
             logger.warning(f"Unknown status: {status_id}")
 
     def _get_field(self: object, field: str) -> dict:
+        if not field:
+            return None
+
         if not self._fields:
             self._fields = self._get_fields()
 
@@ -172,13 +181,15 @@ class Jira():
 
         return issue
 
-    def _update_issue_at_date(self: object, issue: dict, date: object) -> dict:
+    def _update_issue_at_date(self: object, issue: dict, date: object = datetime.now()) -> dict:
         """
         Updates the provided issue to the status of the given date/time.
         :param issue: Issue to update reflecting the status of the given date/time
         :param date: Specific date/time to unwind the issue to
         :returns: Updated issue
         """
+        if not issue or not date:
+            return None
 
         _creation_date = utils.field_to_datetime(issue['fields']['created'])
 
