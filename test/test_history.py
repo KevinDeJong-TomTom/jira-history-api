@@ -104,6 +104,62 @@ class TestJiraField(unittest.TestCase):
         self.uut._jira.get_all_fields.assert_called_once()
 
 
+class TestJiraVersion(unittest.TestCase):
+    def setUp(self):
+        with fake_jira_context():
+            self.uut = jira.Jira(username='bob', password='secret', url='404')
+
+    def test_get_no_version_no_project(self):
+        assert self.uut._get_version(project=None, version_id=None) is None
+        self.uut._jira.get_project_versions.assert_not_called()
+
+    def test_get_no_version(self):
+        assert self.uut._get_version(project='TEST', version_id=None) is None
+        self.uut._jira.get_project_versions.assert_not_called()
+
+    def test_get_invalid_version(self):
+        self.uut._jira.get_project_versions.return_value = [{
+            'self': 'https://jira-instance/rest/api/2/version/61404',
+            'id': '61404',
+            'name': 'RELEASE 1',
+            'archived': False,
+            'released': True,
+            'startDate': '2017-11-20',
+            'releaseDate': '2017-12-01',
+            'userStartDate': '20/Nov/17 12:00 AM',
+            'userReleaseDate': '01/Dec/17 12:00 AM',
+            'projectId': 1
+        }]
+
+        assert self.uut._get_version(project='TEST', version_id=666) is None
+        self.uut._jira.get_project_versions.assert_called_once()
+
+    def test_get_valid_version(self):
+        _version = {
+            'self': 'https://jira-instance/rest/api/2/version/61404',
+            'id': '61404',
+            'name': 'RELEASE 1',
+            'archived': False,
+            'released': True,
+            'startDate': '2017-11-20',
+            'releaseDate': '2017-12-01',
+            'userStartDate': '20/Nov/17 12:00 AM',
+            'userReleaseDate': '01/Dec/17 12:00 AM',
+            'projectId': 1
+        }
+
+        self.uut._jira.get_project_versions.return_value = [_version]
+
+        assert self.uut._get_version(project='TEST', version_id='61404') == _version
+        self.uut._jira.get_project_versions.assert_called_once()
+
+    def test_get_valid_version_from_cache(self):
+        self.uut._get_version(project='TEST', version_id='1')
+        self.uut._get_version(project='TEST', version_id='1')
+
+        self.uut._jira.get_project_versions.assert_called_once()
+
+
 @contextlib.contextmanager
 def fake_jira_context():
 

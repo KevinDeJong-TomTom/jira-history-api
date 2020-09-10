@@ -70,14 +70,14 @@ class Jira():
 
         return _fields_dict
 
-    def _get_version(self: object, project: str, version_id: int) -> dict:
+    def _get_version(self: object, project: str, version_id: str) -> dict:
         """
         Retrieves the version associated with the given version ID
         :param project: Project key associated with the version
         :param version_d: Version ID associated with a version
         :returns: Version when version ID is known or `None` otherwise
         """
-        if not version_id:
+        if not project or not version_id:
             return None
 
         if not self._versions:
