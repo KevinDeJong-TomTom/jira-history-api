@@ -10,6 +10,9 @@
 # immediately return it to TomTom N.V.
 
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def field_to_datetime(field):
@@ -29,9 +32,12 @@ def get_from_jira_scheme(function: object) -> dict:
     :returns: Dictionary containing all items by ID
     """
     _data = function()
-
     _result_dict = {}
-    for entry in _data:
-        _result_dict[entry['id']] = entry
+
+    if _data:
+        for entry in _data:
+            _result_dict[entry['id']] = entry
+    else:
+        logger.error(f"Could not retrieve scheme for {function}")
 
     return _result_dict
