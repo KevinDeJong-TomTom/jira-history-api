@@ -63,7 +63,10 @@ class Jira():
                 _fields_dict[clause] = field
 
         # Special cases
-        _fields_dict['Fix Version'] = _fields_dict['fixVersion']
+        try:
+            _fields_dict['Fix Version'] = _fields_dict['fixVersion']
+        except KeyError:
+            logger.warning('The field "fixVersion" is not a valid alias')
 
         return _fields_dict
 
