@@ -1,0 +1,9 @@
+[run]
+source = jira_history/
+branch = True
+omit = .eggs/*
+       setup.py
+       test/*
+
+[xml]
+output = coverage-reports/coverage-jira-history.xml
