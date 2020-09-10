@@ -12,10 +12,10 @@ from __future__ import print_function
 from setuptools import setup
 
 setup(
-    name='girastics',
+    name='jira-history',
     description='Python JIRA Historical Search',
     packages=(
-        'girastics',
+        'jira_history',
     ),
     python_requires='>=3.5',
     install_requires=(
@@ -29,7 +29,7 @@ setup(
     use_scm_version={"relative_to": __file__},
     entry_points={
         'console_scripts': [
-            'girastics=girastics.cli:main',
+            'jira-history=jira_history.cli:main',
         ]
     },
     zip_safe=True,
