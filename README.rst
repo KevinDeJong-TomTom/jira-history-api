@@ -1,7 +1,7 @@
 ============
 Jira History
 ============
-|coverage| |qualitygate| 
+|version| |license| |coverage| |qualitygate| 
 
 The Jira History library allows you to retrieve issues from JIRA in (almost) the same
 state as they were on the requested date/time.
@@ -10,13 +10,17 @@ In addition, a simple CLI is added to retrieve the status of a singular issue.
 
 .. |coverage| image:: https://sonarcloud.io/api/project_badges/measure?project=KevinDeJong-TomTom_girastics&metric=coverage
 .. |qualitygate| image:: https://sonarcloud.io/api/project_badges/measure?project=KevinDeJong-TomTom_girastics&metric=alert_status
+.. |version| image:: https://badge.fury.io/py/jira-history-api.svg
+   :target: https://badge.fury.io/py/jira-history-api
+.. |license| image:: https://img.shields.io/pypi/l/jira-history-api.svg
+   :target: https://pypi.python.org/pypi/jira-history-api
 
 
 Installation
 ------------
 .. code-block:: console
 
-   $ pip install jira-history
+   $ pip install jira-history-api
 
 Example
 -------
