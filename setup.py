@@ -11,9 +11,18 @@ from __future__ import print_function
 
 from setuptools import setup
 
+with open('README.rst') as file:
+    long_description = file.read()
+
 setup(
-    name='jira-history',
-    description='Python JIRA Historical Search',
+    name='jira-history-api',
+    description='Python JIRA Historical Search API',
+    long_description=long_description,
+    download_url='https://github.com/KevinDeJong-TomTom/jira-history-api',
+    url='https://github.com/KevinDeJong-TomTom/jira-history-api',
+    author='Kevin de Jong',
+    author_email='KevinDeJong@tomtom.com',
+    keywords='atlassian jira core software rest api history historical search',
     packages=(
         'jira_history',
     ),
