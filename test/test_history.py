@@ -261,7 +261,7 @@ class TestJiraUpdate(unittest.TestCase):
                         'id': '2'
                     },
                     'assignee': {'displayName': 'bob'},
-                    'project': { 'key': 'TEST' }
+                    'project': {'key': 'TEST'}
                 },
                 'changelog': {
                     'histories': []
