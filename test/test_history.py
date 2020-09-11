@@ -9,11 +9,11 @@
 
 import atlassian
 import contextlib
-import datetime
+from datetime import datetime
 import unittest
 from unittest import mock
 
-from jira_history import jira
+from jira_history import jira, utils
 
 
 class TestJiraUser(unittest.TestCase):
@@ -241,7 +241,7 @@ class TestJiraUpdate(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
             self.uut = jira.Jira(username='ben', password='secret', url='404')
-            self.issue001 = {
+            self.test_issue = {
                 'expand': 'operations,versionedRepresentations,editmeta,changelog,renderedFields',
                 'id': '2109604',
                 'self': 'https://jira-instance/rest/api/2/issue/2109604',
@@ -249,23 +249,18 @@ class TestJiraUpdate(unittest.TestCase):
                 'fields': {
                     'created': '2018-01-01T12:00:00.000+0000',
                     'fixVersions': [],
-                    'resolution': None,
+                    'resolution': {
+                        'name': "Won't Fix",
+                        'id': '2'
+                    },
+                    'description': '*Fixed* my typo (_with_ text formatting)',
                     'summary': 'Interesting issue to solve',
                     'status': {
-                        'self': 'https://jira-instance/rest/api/2/status/1',
-                        'description': 'The issue is open and ready for the assignee to start work on it.',
-                        'iconUrl': 'https://jira-instance/images/icons/statuses/open.png',
-                        'name': 'Open',
-                        'id': '1',
-                        'statusCategory': {
-                            'self': 'https://jira-instance/rest/api/2/statuscategory/2',
-                            'id': 2,
-                            'key': 'new',
-                            'colorName': 'blue-gray',
-                            'name': 'To Do'
-                        }
+                        'name': 'Done',
+                        'id': '2'
                     },
-                    'assignee': None
+                    'assignee': {'displayName': 'bob'},
+                    'project': { 'key': 'TEST' }
                 },
                 'changelog': {
                     'histories': []
@@ -273,13 +268,173 @@ class TestJiraUpdate(unittest.TestCase):
             }
 
     def test_update_issue_without_issue(self):
-        assert self.uut._update_issue_at_date(issue=None, date=datetime.datetime.now()) is None
+        assert self.uut._update_issue_at_date(issue=None, date=datetime.now()) is None
 
     def test_update_issue_without_date(self):
-        assert self.uut._update_issue_at_date(issue=self.issue001, date=None) is None
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=None) is None
 
     def test_update_issue_without_changelog(self):
-        assert self.uut._update_issue_at_date(issue=self.issue001) == self.issue001
+        assert self.uut._update_issue_at_date(issue=self.test_issue) == self.test_issue
+
+    def test_update_issue_before_creation_date(self):
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2000-01-01T09:00:00.000+0000')) is None
+
+    def test_update_issue_future_date(self):
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('3000-01-01T09:00:00.000+0000')) == self.test_issue
+
+    def test_update_issue_invalid_field(self):
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'invalid', 'fieldtype': 'string', 'from': '', 'fromString': 'Does not exist', 'to': '', 'toString': 'Still does not exist'}]
+            }
+        ]
+
+        assert self.uut._update_issue_at_date(issue=self.test_issue) == self.test_issue
+
+    def test_update_issue_multiple_dates(self):
+        _summary_field = {'id': 'summary', 'name': 'Summary', 'clauseNames': ['summary'], 'schema': {'type': 'string', 'system': 'description'}}
+        _description_field = {'id': 'description', 'name': 'Description', 'clauseNames': ['description'], 'schema': {'type': 'string', 'system': 'description'}}
+        self.uut._jira.get_all_fields.return_value = [_summary_field, _description_field]
+
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'description', 'fieldtype': 'string', 'from': '', 'fromString': 'I made a typo', 'to': '', 'toString': 'Fixed my typo'}]
+            },
+            {
+                'id': '2',
+                'created': '2018-12-01T12:00:00.000+0000',
+                'items': [{
+                    'field': 'description',
+                    'fieldtype': 'string',
+                    'from': '',
+                    'fromString': 'Fixed my typo',
+                    'to': '',
+                    'toString': '*Fixed* my typo (_with_ text formatting)'
+                }, {
+                    'field': 'summary',
+                    'fieldtype': 'string',
+                    'from': '',
+                    'fromString': 'Uninteresting issue to solve',
+                    'to': '',
+                    'toString': 'Interesting issue to solve'
+                }]
+            },
+        ]
+        assert self.uut._update_issue_at_date(issue=self.test_issue) == self.test_issue
+
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-11-30T09:00:00.000+0000'))
+        assert _issue['fields']['description'] == 'Fixed my typo'
+        assert _issue['fields']['summary'] == 'Uninteresting issue to solve'
+
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
+        assert _issue['fields']['description'] == 'Fixed my typo'
+
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert _issue['fields']['description'] == 'I made a typo'
+
+    def test_update_issue_status_field(self):
+        self.uut._jira.get_all_fields.return_value = [{
+            'id': 'status',
+            'name': 'Status',
+            'clauseNames': ['status'],
+            'schema': {'type': 'status', 'system': 'status'}
+        }]
+        self.uut._jira.get_all_statuses.return_value = [{'name': 'Open', 'id': '1'},
+                                                        {'name': 'Done', 'id': '2'}]
+
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'status', 'fieldtype': 'jira', 'from': '1', 'fromString': 'Open', 'to': '2', 'toString': 'Done'}]
+            }
+        ]
+
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert _issue['fields']['status']['name'] == 'Open'
+
+    def test_update_issue_resolution_field(self):
+        self.uut._jira.get_all_fields.return_value = [{
+            'id': 'resolution',
+            'name': 'Resolution',
+            'clauseNames': ['resolution'],
+            'schema': {'type': 'resolution', 'system': 'resolution'}
+        }]
+        self.uut._jira.get_all_resolutions.return_value = [{'id': '1', 'name': 'Fixed'},
+                                                           {'id': '2', 'name': "Won't Fix"}]
+
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'resolution', 'fieldtype': 'jira', 'from': None, 'fromString': None, 'to': '1', 'toString': 'Fixed'}]
+            },
+            {
+                'id': '2',
+                'created': '2018-12-01T09:00:00.000+0000',
+                'items': [{'field': 'resolution', 'fieldtype': 'jira', 'from': '1', 'fromString': 'Fixed', 'to': '2', 'toString': "Won't Fix"}]
+            }
+        ]
+
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert _issue['fields']['resolution'] is None
+
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
+        assert _issue['fields']['resolution']['name'] == 'Fixed'
+
+    def test_update_issue_user_field(self):
+        self.uut._jira.get_all_fields.return_value = [{
+            'id': 'assignee',
+            'name': 'Assignee',
+            'clauseNames': ['assignee'],
+            'schema': {'type': 'user', 'system': 'assignee'}
+        }]
+        self.uut._jira.user.return_value = {'displayName': 'bob'}
+
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'assignee', 'fieldtype': 'jira', 'from': 'bob', 'fromString': 'bob', 'to': 'bill', 'toString': 'bill'}]
+            }
+        ]
+
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert _issue['fields']['assignee']['displayName'] == 'bob'
+
+    def test_update_issue_fix_version(self):
+        self.uut._jira.get_all_fields.return_value = [{
+            'id': 'fixVersions',
+            'name': 'Fix Version/s',
+            'clauseNames': ['fixVersion'],
+            'schema': {'type': 'array', 'items': 'version', 'system': 'fixVersions'}
+        }]
+
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'Fix Version', 'fieldtype': 'jira', 'from': '1', 'fromString': '1.0.0', 'to': None, 'toString': None},
+                          {'field': 'Fix Version', 'fieldtype': 'jira', 'from': None, 'fromString': None, 'to': '2', 'toString': '1.0.1'}]
+            }
+        ]
+
+        self.uut._jira.get_project_versions.return_value = [{'id': '1', 'name': '1.0.0'},
+                                                            {'id': '2', 'name': '1.0.1'}]
+
+        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+
+        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert len(_issue['fields']['fixVersions']) == 1
+        assert _issue['fields']['fixVersions'][0]['name'] == '1.0.0'
 
 
 @contextlib.contextmanager
