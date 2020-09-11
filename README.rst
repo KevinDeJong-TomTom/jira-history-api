@@ -1,11 +1,15 @@
 ============
 Jira History
 ============
+|coverage| |qualitygate| 
 
 The Jira History library allows you to retrieve issues from JIRA in (almost) the same
 state as they were on the requested date/time.
 
 In addition, a simple CLI is added to retrieve the status of a singular issue.
+
+.. |coverage| image:: https://sonarcloud.io/api/project_badges/measure?project=KevinDeJong-TomTom_girastics&metric=coverage
+.. |qualitygate| image:: https://sonarcloud.io/api/project_badges/measure?project=KevinDeJong-TomTom_girastics&metric=alert_status
 
 
 Installation
