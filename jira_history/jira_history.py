@@ -185,7 +185,7 @@ class Jira():
         """
         Updates the provided issue to the status of the given date/time.
         :param issue: Issue to update reflecting the status of the given date/time
-        :param date: Specific date/time to unwind the issue to
+        :param date: Specific date/time to unwind the issue to (optional)
         :returns: Updated issue
         """
         if not issue or not date:
@@ -194,7 +194,7 @@ class Jira():
         _creation_date = utils.field_to_datetime(issue['fields']['created'])
 
         if date < _creation_date:
-            logger.warning(f"Requesting date ({date})"
+            logger.warning(f"Requesting date ({date}) "
                            f"before issue creation ({issue['fields']['created']}")
             return None
 
@@ -218,27 +218,29 @@ class Jira():
 
         return issue
 
-    def jql(self: object, jql: str) -> list:
+    def jql(self: object, jql: str, date: object = datetime.now()) -> list:
         """
-        Retrieves issues from Jira using JQL and updates them to the status of 01/08/2018
+        Retrieves issues from Jira using JQL and updates them to the status of the given date/time
         :param jql: JQL to retrieve issue with
-        :returns: Issues reflecting the status of 01/08/2018
+        :param date: Specific date/time to unwind the issue to (optional)
+        :returns: Issues reflecting the status of the specified date/time
         """
         _issues = self._jira.jql(jql=jql, expand='changelog')['issues']
 
         result = []
         for issue in _issues:
-            result.append(self._update_issue_at_date(issue, datetime.strptime('2018/08/01', '%Y/%m/%d')))
+            result.append(self._update_issue_at_date(issue, date))
 
         return result
 
-    def get_issue(self: object, key: str) -> dict:
+    def get_issue(self: object, key: str, date: object = datetime.now()) -> dict:
         """
-        Retrieves an issue from Jira and updates it to the status of 01/08/2018
+        Retrieves an issue from Jira and updates it to the status of the given date/time
         :param key: Issue key to retrieve
-        :returns: Issue reflecting the status of 01/08/2018
+        :param date: Specific date/time to unwind the issue to (optional)
+        :returns: Issues reflecting the status of the specified date/time
         """
-        _issues = self.jql(f'key={key}')
+        _issues = self.jql(f'key={key}', date)
         if len(_issues) > 0:
             return _issues[0]
 

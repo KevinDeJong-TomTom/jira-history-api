@@ -13,13 +13,14 @@ from datetime import datetime
 import unittest
 from unittest import mock
 
-from jira_history import jira, utils
+from jira_history import jira_history
+from jira_history import utils
 
 
 class TestJiraUser(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
-            self.uut = jira.Jira(username='ben', password='secret', url='404')
+            self.uut = jira_history.Jira(username='ben', password='secret', url='404')
 
     def test_get_no_user(self):
         assert self.uut._get_user(username=None) is None
@@ -47,7 +48,7 @@ class TestJiraUser(unittest.TestCase):
 class TestJiraField(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
-            self.uut = jira.Jira(username='bob', password='secret', url='404')
+            self.uut = jira_history.Jira(username='bob', password='secret', url='404')
 
     def test_get_empty_fields(self):
         self.uut._jira.get_all_fields.return_value = []
@@ -108,7 +109,7 @@ class TestJiraField(unittest.TestCase):
 class TestJiraVersion(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
-            self.uut = jira.Jira(username='bob', password='secret', url='404')
+            self.uut = jira_history.Jira(username='bob', password='secret', url='404')
 
     def test_get_no_version_no_project(self):
         assert self.uut._get_version(project=None, version_id=None) is None
@@ -164,7 +165,7 @@ class TestJiraVersion(unittest.TestCase):
 class TestJiraResolution(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
-            self.uut = jira.Jira(username='ben', password='secret', url='404')
+            self.uut = jira_history.Jira(username='ben', password='secret', url='404')
 
     def test_get_no_resolution(self):
         assert self.uut._get_resolution(resolution_id=None) is None
@@ -198,7 +199,7 @@ class TestJiraResolution(unittest.TestCase):
 class TestJiraStatus(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
-            self.uut = jira.Jira(username='ben', password='secret', url='404')
+            self.uut = jira_history.Jira(username='ben', password='secret', url='404')
 
     def test_get_no_status(self):
         assert self.uut._get_status(status_id=None) is None
@@ -240,7 +241,7 @@ class TestJiraStatus(unittest.TestCase):
 class TestJiraUpdate(unittest.TestCase):
     def setUp(self):
         with fake_jira_context():
-            self.uut = jira.Jira(username='ben', password='secret', url='404')
+            self.uut = jira_history.Jira(username='ben', password='secret', url='404')
             self.test_issue = {
                 'expand': 'operations,versionedRepresentations,editmeta,changelog,renderedFields',
                 'id': '2109604',

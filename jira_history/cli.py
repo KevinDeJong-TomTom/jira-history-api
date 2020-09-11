@@ -10,8 +10,9 @@
 # immediately return it to TomTom N.V.
 import logging
 import click
+from datetime import datetime
 
-from .jira import Jira
+from . import jira_history
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +33,17 @@ logger = logging.getLogger(__name__)
 @click.option('-k', '--key',
               required=True,
               help='Issue key to analyse')
+@click.option('-d', '--date', type=click.DateTime(formats=["%Y-%m-%d"]),
+              help='Status of Jira issue key should reflect this date',
+              default=str(datetime.now()))
 @click.option('--verbose',
               is_flag=True,
               help='Increase verbosity for more logging')
-def main(username, password, server, key, verbose):
+def main(username, password, server, key, date, verbose):
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO,
                         format='%(levelname)s: %(message)s')
 
-    jira = Jira(url=server, username=username, password=password)
-    jira.get_issue(key)
+    jira = jira_history.Jira(url=server, username=username, password=password)
+    print(jira.get_issue(key=key, date=date))
 
     return 0
