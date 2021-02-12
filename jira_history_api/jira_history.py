@@ -97,7 +97,7 @@ class Jira():
                 logger.warning(f'Incorrect project ({project}) associated with component ({_component["project"]})')
                 self._components[component_id] = {}
 
-            else:  
+            else:
                 self._components[component_id] = {
                     'self': _component['self'],
                     'id': _component['id'],
@@ -214,6 +214,8 @@ class Jira():
             _value = self._get_user(update['from'])
         elif _field_type == 'array':
             _value = self._update_array(update, issue)
+        elif _field_type == 'number':
+            _value = update['fromString']
         else:
             logger.warning(f"Unsupported field type: {field['schema']['type']}")
             return issue

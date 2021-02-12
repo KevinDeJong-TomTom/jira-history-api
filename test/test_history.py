@@ -14,6 +14,7 @@
 
 import atlassian
 import contextlib
+import copy
 from datetime import datetime
 import unittest
 from unittest import mock
@@ -328,11 +329,12 @@ class TestJiraUpdate(unittest.TestCase):
                     },
                     'description': '*Fixed* my typo (_with_ text formatting)',
                     'summary': 'Interesting issue to solve',
+                    'dice': '3',
                     'status': {
                         'name': 'Done',
                         'id': '2'
                     },
-                    'assignee': {'displayName': 'bob'},
+                    'assignee': {'displayName': 'bill'},
                     'project': {'key': 'TEST'}
                 },
                 'changelog': {
@@ -369,7 +371,8 @@ class TestJiraUpdate(unittest.TestCase):
     def test_update_issue_multiple_dates(self):
         _summary_field = {'id': 'summary', 'name': 'Summary', 'clauseNames': ['summary'], 'schema': {'type': 'string', 'system': 'description'}}
         _description_field = {'id': 'description', 'name': 'Description', 'clauseNames': ['description'], 'schema': {'type': 'string', 'system': 'description'}}
-        self.uut._jira.get_all_fields.return_value = [_summary_field, _description_field]
+        _number_field = {'id': 'dice', 'name': 'Dice', 'clauseNames': ['dice'], 'schema': {'type': 'number', 'system': 'description'}}
+        self.uut._jira.get_all_fields.return_value = [_summary_field, _description_field, _number_field]
 
         self.test_issue['changelog']['histories'] = [
             {
@@ -396,18 +399,29 @@ class TestJiraUpdate(unittest.TestCase):
                     'toString': 'Interesting issue to solve'
                 }]
             },
+            {
+                'id': '3',
+                'created': '2019-01-01T15:00:00.000+0000',
+                'items': [{'field': 'dice', 'fieldtype': 'number', 'from': '', 'fromString': '6', 'to': '', 'toString': '3'}]
+            }
         ]
-        assert self.uut._update_issue_at_date(issue=self.test_issue) == self.test_issue
-
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-11-30T09:00:00.000+0000'))
-        assert _issue['fields']['description'] == 'Fixed my typo'
-        assert _issue['fields']['summary'] == 'Uninteresting issue to solve'
-
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
-        assert _issue['fields']['description'] == 'Fixed my typo'
-
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
         assert _issue['fields']['description'] == 'I made a typo'
+        assert _issue['fields']['summary'] == 'Uninteresting issue to solve'
+        assert _issue['fields']['dice'] == '6'
+
+
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-11-30T09:00:00.000+0000'))
+        assert _issue['fields']['description'] == 'Fixed my typo'
+
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-12-01T12:01:00.000+0000'))
+        assert _issue['fields']['description'] == '*Fixed* my typo (_with_ text formatting)'
+        assert _issue['fields']['summary'] == 'Interesting issue to solve'
+
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2019-01-01T15:01:00.000+0000'))
+        assert _issue['fields']['dice'] == '3'
+
+
 
     def test_update_issue_status_field(self):
         self.uut._jira.get_all_fields.return_value = [{
@@ -427,8 +441,8 @@ class TestJiraUpdate(unittest.TestCase):
             }
         ]
 
-        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
         assert _issue['fields']['status']['name'] == 'Open'
 
     def test_update_issue_resolution_field(self):
@@ -454,13 +468,14 @@ class TestJiraUpdate(unittest.TestCase):
             }
         ]
 
-        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
-
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
         assert not _issue['fields']['resolution']
 
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
         assert _issue['fields']['resolution']['name'] == 'Fixed'
+
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-12-01T09:01:00.000+0000'))
+        assert _issue['fields']['resolution']['name'] == "Won't Fix"
 
     def test_update_issue_user_field(self):
         self.uut._jira.get_all_fields.return_value = [{
@@ -479,16 +494,18 @@ class TestJiraUpdate(unittest.TestCase):
             }
         ]
 
-        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
         assert _issue['fields']['assignee']['displayName'] == 'bob'
+
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
+        assert _issue['fields']['assignee']['displayName'] == 'bill'
 
     def test_update_issue_fix_version(self):
         self.uut._jira.get_all_fields.return_value = [{
-            'id': 'fixVersions',
+            'id': 'fixVersion',
             'name': 'Fix Version/s',
             'clauseNames': ['fixVersion'],
-            'schema': {'type': 'array', 'items': 'version', 'system': 'fixVersions'}
+            'schema': {'type': 'array', 'items': 'version', 'system': 'fixVersion'}
         }]
 
         self.test_issue['changelog']['histories'] = [
@@ -503,11 +520,11 @@ class TestJiraUpdate(unittest.TestCase):
         self.uut._jira.get_project_versions.return_value = [{'id': '1', 'name': '1.0.0'},
                                                             {'id': '2', 'name': '1.0.1'}]
 
-        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+        assert self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
 
-        _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
-        assert len(_issue['fields']['fixVersions']) == 1
-        assert _issue['fields']['fixVersions'][0]['name'] == '1.0.0'
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert len(_issue['fields']['fixVersion']) == 1
+        assert _issue['fields']['fixVersion'][0]['name'] == '1.0.0'
 
 
 @contextlib.contextmanager
