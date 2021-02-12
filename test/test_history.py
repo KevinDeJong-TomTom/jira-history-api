@@ -167,8 +167,12 @@ class TestJiraComponent(unittest.TestCase):
         with fake_jira_context():
             self.uut = jira_history.Jira(username='bob', password='secret', url='404')
 
+    def test_get_no_component_no_project(self):
+        assert self.uut._get_component(project=None, component_id=None) is None
+        self.uut._jira.component.assert_not_called()
+
     def test_get_no_component(self):
-        assert self.uut._get_component(component_id=None) is None
+        assert self.uut._get_component(project='TEST', component_id=None) is None
         self.uut._jira.component.assert_not_called()
 
     def test_get_invalid_component(self):
@@ -177,7 +181,7 @@ class TestJiraComponent(unittest.TestCase):
             'errors': {}
         }
 
-        assert self.uut._get_component(component_id='666') is None
+        assert self.uut._get_component(project='TEST', component_id='666') is None
         self.uut._jira.component.assert_called_once()
 
     def test_get_valid_component(self):
@@ -188,18 +192,39 @@ class TestJiraComponent(unittest.TestCase):
             'assigneeType': 'PROJECT_DEFAULT',
             'realAssigneeType': 'PROJECT_DEFAULT',
             'isAssigneeTypeValid': False,
-            'project': 'PROJECT NAME',
+            'project': 'TEST',
             'projectId': 22694,
             'archived': False
         }
         self.uut._jira.component.return_value = _component
 
-        assert self.uut._get_component(component_id=52336) == _component
+        assert self.uut._get_component(project='TEST', component_id=52336) == {
+            'self': _component['self'],
+            'id': _component['id'],
+            'name': _component['name']
+        }
+        self.uut._jira.component.assert_called_once()
+
+    def test_get_valid_component_invalid_project(self):
+        _component = {
+            'self': 'https://jira-instance/rest/api/2/component/52336',
+            'id': '52336',
+            'name': 'COMPONENT 1',
+            'assigneeType': 'PROJECT_DEFAULT',
+            'realAssigneeType': 'PROJECT_DEFAULT',
+            'isAssigneeTypeValid': False,
+            'project': 'TEST',
+            'projectId': 22694,
+            'archived': False
+        }
+        self.uut._jira.component.return_value = _component
+
+        assert self.uut._get_component(project='FAIL', component_id=52336) == None
         self.uut._jira.component.assert_called_once()
 
     def test_get_valid_component_from_cache(self):
-        self.uut._get_component(component_id='1')
-        self.uut._get_component(component_id='1')
+        self.uut._get_component(project='TEST', component_id='1')
+        self.uut._get_component(project='TEST', component_id='1')
 
         self.uut._jira.component.assert_called_once()
 

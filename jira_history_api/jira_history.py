@@ -69,9 +69,10 @@ class Jira():
 
         return _fields_dict
 
-    def _get_component(self: object, component_id: str) -> dict:
+    def _get_component(self: object, project: str, component_id: str) -> dict:
         """
         Retrieves the component associated with the given component ID
+        :param project: Project key associated with the component
         :param component_id: Component Id associated with the version
         :return: Component when component ID is known or `None` otherwise
         """
@@ -79,12 +80,24 @@ class Jira():
         if not component_id:
             return None
 
-        if not self._components:
-            if component_id not in self._components:
-                self._components[component_id] = self._jira.component(component_id)
+        if component_id not in self._components:
+            _component = self._jira.component(component_id)
 
-        if 'errorMessages' in self._components[component_id]:
-            return None
+            if 'errorMessages' in _component:
+                logger.warning(f'Incorrect component ID: {component_id}')
+                self._components[component_id] = None
+                return None
+
+            if project != _component['project']:
+                logger.warning(f'Incorrect project ({project}) associated with component ({_component["project"]})')
+                self._components[component_id] = None
+                return None
+
+            self._components[component_id] = {
+                'self': _component['self'],
+                'id': _component['id'],
+                'name': _component['name']
+            }
 
         return self._components[component_id]
 
@@ -146,31 +159,25 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown field: {field}")
 
+    def _update_array_generic(self: object, update: dict, issue: dict, field: str, func: object):
+        _current = issue['fields'][field]
+        _project = issue['fields']['project']['key']
+
+        _from = func(_project, update['from'])
+        _to = func(_project, update['to'])
+
+        if _from is None:
+            return [item for item in _current if item['id'] != _to['id']]
+
+        _current.append(_from)
+        return _current
+
     def _update_array(self: object, update: dict, issue: dict):
         if update['field'] == 'Fix Version':
-            _project = issue['fields']['project']['key']
-            _versions = issue['fields']['fixVersions']
-
-            _from = self._get_version(_project, update['from'])
-            _to = self._get_version(_project, update['to'])
-
-            if _from is None:
-                return [version for version in _versions if version['id'] != _to['id']]
-
-            _versions.append(_from)
-            return _versions
+            return self._update_array_generic(update, issue, 'fixVersions', self._get_version)
 
         if update['field'] == 'Component':
-            _components = issue['fields']['components']
-
-            _from = self._get_component(update['from'])
-            _to = self._get_component(update['to'])
-
-            if _from is None:
-                return [component for component in _components if component['id'] != _to['id']]
-
-            _components.append(_from)
-            return _components
+            return self._update_array_generic(update, issue, 'components', self._get_component)
 
         logger.error(f"Unsupport array type: {update['field']}")
         return None
