@@ -1,11 +1,16 @@
-# Copyright (c) 2020 - 2020 TomTom N.V. All rights reserved.
+# Copyright (c) 2020 - 2021 TomTom N.V.
 #
-# This software is the proprietary copyright of TomTom N.V. and its subsidiaries and may be
-# used for internal evaluation purposes or commercial use strictly subject to separate
-# licensee agreement between you and TomTom. If you are the licensee, you are only permitted
-# to use this Software in accordance with the terms of your license agreement. If you are
-# not the licensee, then you are not authorized to use this software in any manner and should
-# immediately return it to TomTom N.V.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from __future__ import print_function
 
@@ -23,6 +28,8 @@ setup(
     author='Kevin de Jong',
     author_email='KevinDeJong@tomtom.com',
     keywords='atlassian jira core software rest api history historical search',
+    license='Apache License 2.0',
+    license_files='LICENSE.txt',
     packages=(
         'jira_history_api',
     ),
