@@ -13,8 +13,8 @@ from datetime import datetime
 import unittest
 from unittest import mock
 
-from jira_history import jira_history
-from jira_history import utils
+from jira_history_api import jira_history
+from jira_history_api import utils
 
 
 class TestJiraUser(unittest.TestCase):
@@ -160,6 +160,48 @@ class TestJiraVersion(unittest.TestCase):
         self.uut._get_version(project='TEST', version_id='1')
 
         self.uut._jira.get_project_versions.assert_called_once()
+
+
+class TestJiraComponent(unittest.TestCase):
+    def setUp(self):
+        with fake_jira_context():
+            self.uut = jira_history.Jira(username='bob', password='secret', url='404')
+
+    def test_get_no_component(self):
+        assert self.uut._get_component(component_id=None) is None
+        self.uut._jira.component.assert_not_called()
+
+    def test_get_invalid_component(self):
+        self.uut._jira.component.return_value = {
+            'errorMessages': ['The component with id 666 does not exist.'],
+            'errors': {}
+        }
+
+        assert self.uut._get_component(component_id='666') is None
+        self.uut._jira.component.assert_called_once()
+
+    def test_get_valid_component(self):
+        _component = {
+            'self': 'https://jira-instance/rest/api/2/component/52336',
+            'id': '52336',
+            'name': 'COMPONENT 1',
+            'assigneeType': 'PROJECT_DEFAULT',
+            'realAssigneeType': 'PROJECT_DEFAULT',
+            'isAssigneeTypeValid': False,
+            'project': 'PROJECT NAME',
+            'projectId': 22694,
+            'archived': False
+        }
+        self.uut._jira.component.return_value = _component
+
+        assert self.uut._get_component(component_id=52336) == _component
+        self.uut._jira.component.assert_called_once()
+
+    def test_get_valid_component_from_cache(self):
+        self.uut._get_component(component_id='1')
+        self.uut._get_component(component_id='1')
+
+        self.uut._jira.component.assert_called_once()
 
 
 class TestJiraResolution(unittest.TestCase):

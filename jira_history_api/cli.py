@@ -9,10 +9,10 @@
 # not the licensee, then you are not authorized to use this software in any manner and should
 # immediately return it to TomTom N.V.
 import logging
-import click
 from datetime import datetime
+import click
 
-from . import jira_history
+from jira_history_api import jira_history
 
 logger = logging.getLogger(__name__)
 

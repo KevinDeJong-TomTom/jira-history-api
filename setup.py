@@ -24,7 +24,7 @@ setup(
     author_email='KevinDeJong@tomtom.com',
     keywords='atlassian jira core software rest api history historical search',
     packages=(
-        'jira_history',
+        'jira_history_api',
     ),
     python_requires='>=3.5',
     install_requires=(
@@ -38,7 +38,7 @@ setup(
     use_scm_version={"relative_to": __file__},
     entry_points={
         'console_scripts': [
-            'jira-history=jira_history.cli:main',
+            'jira-history=jira_history_api.cli:main',
         ]
     },
     zip_safe=True,

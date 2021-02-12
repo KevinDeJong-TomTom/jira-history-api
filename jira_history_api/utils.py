@@ -41,3 +41,19 @@ def get_from_jira_scheme(function: object) -> dict:
         logger.error(f"Could not retrieve scheme for {function}")
 
     return _result_dict
+
+
+def set_field_alias(data: dict, field: str, alias: str) -> dict:
+    """
+    Creates an alias for a field and adds it to the dict
+    :param data: dict containing the current fields
+    :param field: name of the field to add to the dict
+    :param alias: name of the field to use as its alias
+    :returns: Dictionary containing all fields and the new alias
+    """
+    try:
+        data[field] = data[alias]
+    except KeyError:
+        logger.warning(f'The field "{alias}" is not a valid alias')
+
+    return data
