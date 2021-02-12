@@ -1,5 +1,5 @@
 [run]
-source = jira_history/
+source = jira_history_api/
 branch = True
 omit = .eggs/*
        setup.py

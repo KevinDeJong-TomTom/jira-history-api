@@ -14,7 +14,7 @@ import logging
 
 import atlassian
 
-from . import utils
+from jira_history_api import utils
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class Jira():
         self._fields = None
         self._statuses = None
         self._resolutions = None
+        self._components = {}
         self._users = {}
         self._versions = {}
 
@@ -63,12 +64,29 @@ class Jira():
                 _fields_dict[clause] = field
 
         # Special cases
-        try:
-            _fields_dict['Fix Version'] = _fields_dict['fixVersion']
-        except KeyError:
-            logger.warning('The field "fixVersion" is not a valid alias')
+        _fields_dict = utils.set_field_alias(_fields_dict, 'Fix Version', 'fixVersion')
+        _fields_dict = utils.set_field_alias(_fields_dict, 'Component', 'component')
 
         return _fields_dict
+
+    def _get_component(self: object, component_id: str) -> dict:
+        """
+        Retrieves the component associated with the given component ID
+        :param component_id: Component Id associated with the version
+        :return: Component when component ID is known or `None` otherwise
+        """
+
+        if not component_id:
+            return None
+
+        if not self._components:
+            if component_id not in self._components:
+                self._components[component_id] = self._jira.component(component_id)
+
+        if 'errorMessages' in self._components[component_id]:
+            return None
+
+        return self._components[component_id]
 
     def _get_version(self: object, project: str, version_id: str) -> dict:
         """
@@ -138,9 +156,21 @@ class Jira():
 
             if _from is None:
                 return [version for version in _versions if version['id'] != _to['id']]
-            else:
-                _versions.append(_from)
-                return _versions
+
+            _versions.append(_from)
+            return _versions
+
+        if update['field'] == 'Component':
+            _components = issue['fields']['components']
+
+            _from = self._get_component(update['from'])
+            _to = self._get_component(update['to'])
+
+            if _from is None:
+                return [component for component in _components if component['id'] != _to['id']]
+
+            _components.append(_from)
+            return _components
 
         logger.error(f"Unsupport array type: {update['field']}")
         return None
