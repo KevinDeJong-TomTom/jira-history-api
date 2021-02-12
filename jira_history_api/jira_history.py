@@ -11,6 +11,7 @@
 
 from datetime import datetime
 import logging
+from typing import Callable
 
 import atlassian
 
@@ -37,10 +38,10 @@ class Jira():
         """
         Retrieves the user associates with the provided username.
         :param username: Username associated with an user
-        :returns: User details when user is known or `None` otherwise
+        :returns: User details when user is known or an empty dict otherwise
         """
         if not username:
-            return None
+            return {}
 
         try:
             return self._users[username]
@@ -74,30 +75,29 @@ class Jira():
         Retrieves the component associated with the given component ID
         :param project: Project key associated with the component
         :param component_id: Component Id associated with the version
-        :return: Component when component ID is known or `None` otherwise
+        :return: Component when component ID is known or an empty dict otherwise
         """
 
         if not component_id:
-            return None
+            return {}
 
         if component_id not in self._components:
             _component = self._jira.component(component_id)
 
             if 'errorMessages' in _component:
                 logger.warning(f'Incorrect component ID: {component_id}')
-                self._components[component_id] = None
-                return None
+                self._components[component_id] = {}
 
-            if project != _component['project']:
+            elif project != _component['project']:
                 logger.warning(f'Incorrect project ({project}) associated with component ({_component["project"]})')
-                self._components[component_id] = None
-                return None
+                self._components[component_id] = {}
 
-            self._components[component_id] = {
-                'self': _component['self'],
-                'id': _component['id'],
-                'name': _component['name']
-            }
+            else:  
+                self._components[component_id] = {
+                    'self': _component['self'],
+                    'id': _component['id'],
+                    'name': _component['name']
+                }
 
         return self._components[component_id]
 
@@ -106,10 +106,10 @@ class Jira():
         Retrieves the version associated with the given version ID
         :param project: Project key associated with the version
         :param version_d: Version ID associated with a version
-        :returns: Version when version ID is known or `None` otherwise
+        :returns: Version when version ID is known or an empty dict otherwise
         """
         if not project or not version_id:
-            return None
+            return {}
 
         if not self._versions:
             _versions = self._jira.get_project_versions(project)
@@ -125,7 +125,7 @@ class Jira():
 
     def _get_resolution(self: object, resolution_id: str) -> dict:
         if not resolution_id:
-            return None
+            return {}
 
         if not self._resolutions:
             self._resolutions = utils.get_from_jira_scheme(self._jira.get_all_resolutions)
@@ -137,7 +137,7 @@ class Jira():
 
     def _get_status(self: object, status_id: str) -> dict:
         if not status_id:
-            return None
+            return {}
 
         if not self._statuses:
             self._statuses = utils.get_from_jira_scheme(self._jira.get_all_statuses)
@@ -149,7 +149,7 @@ class Jira():
 
     def _get_field(self: object, field: str) -> dict:
         if not field:
-            return None
+            return {}
 
         if not self._fields:
             self._fields = self._get_fields()
@@ -159,20 +159,20 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown field: {field}")
 
-    def _update_array_generic(self: object, update: dict, issue: dict, field: str, func: object):
+    def _update_array_generic(self: object, update: dict, issue: dict, field: str, function: Callable):
         _current = issue['fields'][field]
         _project = issue['fields']['project']['key']
 
-        _from = func(_project, update['from'])
-        _to = func(_project, update['to'])
+        _from = function(_project, update['from'])
+        _to = function(_project, update['to'])
 
-        if _from is None:
+        if not _from:
             return [item for item in _current if item['id'] != _to['id']]
 
         _current.append(_from)
         return _current
 
-    def _update_array(self: object, update: dict, issue: dict):
+    def _update_array(self: object, update: dict, issue: dict) -> dict:
         if update['field'] == 'Fix Version':
             return self._update_array_generic(update, issue, 'fixVersions', self._get_version)
 
@@ -180,7 +180,7 @@ class Jira():
             return self._update_array_generic(update, issue, 'components', self._get_component)
 
         logger.error(f"Unsupport array type: {update['field']}")
-        return None
+        return {}
 
     def _update_field(self: object, update: dict, issue: dict) -> dict:
         """
@@ -226,14 +226,14 @@ class Jira():
         :returns: Updated issue
         """
         if not issue or not date:
-            return None
+            return {}
 
         _creation_date = utils.field_to_datetime(issue['fields']['created'])
 
         if date < _creation_date:
             logger.warning(f"Requesting date ({date}) "
                            f"before issue creation ({issue['fields']['created']}")
-            return None
+            return {}
 
         if not issue['changelog']['histories']:
             logger.info('Issue has not been updated, returning current status')

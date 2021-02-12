@@ -11,6 +11,7 @@
 
 import datetime
 import logging
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def datetime_to_field(date):
     return date.strftime('%Y-%m-%dT%H:%M:%S')
 
 
-def get_from_jira_scheme(function: object) -> dict:
+def get_from_jira_scheme(function: Callable) -> dict:
     """
     Retrieves Jira schemes and translates them into an dict
     :param function: atlassian.Jira function returning a Jira scheme (dict)
