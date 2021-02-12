@@ -23,7 +23,7 @@ class TestJiraUser(unittest.TestCase):
             self.uut = jira_history.Jira(username='ben', password='secret', url='404')
 
     def test_get_no_user(self):
-        assert self.uut._get_user(username=None) is None
+        assert not self.uut._get_user(username=None)
         self.uut._jira.user.assert_not_called()
 
     def test_get_invalid_user(self):
@@ -84,7 +84,7 @@ class TestJiraField(unittest.TestCase):
         self.uut._jira.get_all_fields.assert_called_once()
 
     def test_get_invalid_field(self):
-        assert self.uut._get_field(None) is None
+        assert not self.uut._get_field(None)
         self.uut._jira.get_all_fields.assert_not_called()
 
     def test_get_valid_field(self):
@@ -112,11 +112,11 @@ class TestJiraVersion(unittest.TestCase):
             self.uut = jira_history.Jira(username='bob', password='secret', url='404')
 
     def test_get_no_version_no_project(self):
-        assert self.uut._get_version(project=None, version_id=None) is None
+        assert not self.uut._get_version(project=None, version_id=None)
         self.uut._jira.get_project_versions.assert_not_called()
 
     def test_get_no_version(self):
-        assert self.uut._get_version(project='TEST', version_id=None) is None
+        assert not self.uut._get_version(project='TEST', version_id=None)
         self.uut._jira.get_project_versions.assert_not_called()
 
     def test_get_invalid_version(self):
@@ -168,11 +168,11 @@ class TestJiraComponent(unittest.TestCase):
             self.uut = jira_history.Jira(username='bob', password='secret', url='404')
 
     def test_get_no_component_no_project(self):
-        assert self.uut._get_component(project=None, component_id=None) is None
+        assert not self.uut._get_component(project=None, component_id=None)
         self.uut._jira.component.assert_not_called()
 
     def test_get_no_component(self):
-        assert self.uut._get_component(project='TEST', component_id=None) is None
+        assert not self.uut._get_component(project='TEST', component_id=None)
         self.uut._jira.component.assert_not_called()
 
     def test_get_invalid_component(self):
@@ -181,7 +181,7 @@ class TestJiraComponent(unittest.TestCase):
             'errors': {}
         }
 
-        assert self.uut._get_component(project='TEST', component_id='666') is None
+        assert not self.uut._get_component(project='TEST', component_id='666')
         self.uut._jira.component.assert_called_once()
 
     def test_get_valid_component(self):
@@ -219,7 +219,7 @@ class TestJiraComponent(unittest.TestCase):
         }
         self.uut._jira.component.return_value = _component
 
-        assert self.uut._get_component(project='FAIL', component_id=52336) == None
+        assert not self.uut._get_component(project='FAIL', component_id=52336)
         self.uut._jira.component.assert_called_once()
 
     def test_get_valid_component_from_cache(self):
@@ -235,7 +235,7 @@ class TestJiraResolution(unittest.TestCase):
             self.uut = jira_history.Jira(username='ben', password='secret', url='404')
 
     def test_get_no_resolution(self):
-        assert self.uut._get_resolution(resolution_id=None) is None
+        assert not self.uut._get_resolution(resolution_id=None)
         self.uut._jira.get_all_resolutions.assert_not_called()
 
     def test_get_invalid_resolution(self):
@@ -269,7 +269,7 @@ class TestJiraStatus(unittest.TestCase):
             self.uut = jira_history.Jira(username='ben', password='secret', url='404')
 
     def test_get_no_status(self):
-        assert self.uut._get_status(status_id=None) is None
+        assert not self.uut._get_status(status_id=None)
         self.uut._jira.get_all_statuses.assert_not_called()
 
     def test_get_invalid_status(self):
@@ -336,16 +336,16 @@ class TestJiraUpdate(unittest.TestCase):
             }
 
     def test_update_issue_without_issue(self):
-        assert self.uut._update_issue_at_date(issue=None, date=datetime.now()) is None
+        assert not self.uut._update_issue_at_date(issue=None, date=datetime.now())
 
     def test_update_issue_without_date(self):
-        assert self.uut._update_issue_at_date(issue=self.test_issue, date=None) is None
+        assert not self.uut._update_issue_at_date(issue=self.test_issue, date=None)
 
     def test_update_issue_without_changelog(self):
         assert self.uut._update_issue_at_date(issue=self.test_issue) == self.test_issue
 
     def test_update_issue_before_creation_date(self):
-        assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2000-01-01T09:00:00.000+0000')) is None
+        assert not self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2000-01-01T09:00:00.000+0000'))
 
     def test_update_issue_future_date(self):
         assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('3000-01-01T09:00:00.000+0000')) == self.test_issue
@@ -452,7 +452,7 @@ class TestJiraUpdate(unittest.TestCase):
         assert self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
 
         _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
-        assert _issue['fields']['resolution'] is None
+        assert not _issue['fields']['resolution']
 
         _issue = self.uut._update_issue_at_date(issue=self.test_issue, date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
         assert _issue['fields']['resolution']['name'] == 'Fixed'
