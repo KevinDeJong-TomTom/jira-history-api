@@ -63,3 +63,25 @@ def set_field_alias(data: dict, field: str, alias: str) -> dict:
         logger.warning(f'The field "{alias}" is not a valid alias')
 
     return data
+
+
+def update_array_generic(issue: dict, update: dict, field: str, function: Callable):
+    """
+    Updates an array based on a function which retrieves the full
+    data type.
+    :param issue: the issue which will be updated
+    :param update: the historical update
+    :param field: schema of the field to update
+    :param function: callable retrieving the full data type
+    """
+    _current = issue['fields'][field]
+    _project = issue['fields']['project']['key']
+
+    _from = function(_project, update['from'])
+    _to = function(_project, update['to'])
+
+    if not _from:
+        return [item for item in _current if item['id'] != _to['id']]
+
+    _current.append(_from)
+    return _current

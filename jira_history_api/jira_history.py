@@ -16,7 +16,6 @@
 
 from datetime import datetime
 import logging
-from typing import Callable
 
 import atlassian
 
@@ -70,8 +69,14 @@ class Jira():
                 _fields_dict[clause] = field
 
         # Special cases
-        _fields_dict = utils.set_field_alias(_fields_dict, 'Fix Version', 'fixVersion')
-        _fields_dict = utils.set_field_alias(_fields_dict, 'Component', 'component')
+        aliases = {
+            'Fix Version': 'fixVersion',
+            'Version': 'affectedVersion',
+            'Component': 'component'
+        }
+
+        for alias, field in aliases.items():
+            _fields_dict = utils.set_field_alias(_fields_dict, alias, field)
 
         return _fields_dict
 
@@ -110,8 +115,8 @@ class Jira():
         """
         Retrieves the version associated with the given version ID
         :param project: Project key associated with the version
-        :param version_d: Version ID associated with a version
-        :returns: Version when version ID is known or an empty dict otherwise
+        :param version_id: ID associated with a version
+        :returns: Version when `version_id` is known or an empty dict otherwise
         """
         if not project or not version_id:
             return {}
@@ -128,7 +133,14 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown version: {version_id}")
 
+        return {}
+
     def _get_resolution(self: object, resolution_id: str) -> dict:
+        """
+        Retrieves the resolution associated with the given resolution ID
+        :param resolution_id: ID associated with a resolution
+        :returns: Resolution when `resolution_id` is known or an empty dict otherwise
+        """
         if not resolution_id:
             return {}
 
@@ -140,7 +152,14 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown resolution: {resolution_id}")
 
+        return {}
+
     def _get_status(self: object, status_id: str) -> dict:
+        """
+        Retrieves the status associated with the given status ID
+        :param status_id: ID associated with a status
+        :returns: Status when `status_id` is known or an empty dict otherwise
+        """
         if not status_id:
             return {}
 
@@ -152,7 +171,14 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown status: {status_id}")
 
+        return {}
+
     def _get_field(self: object, field: str) -> dict:
+        """
+        Retrieves the full field description based on the name of the field
+        :param field: name of the field to retrieve
+        :returns: full field description if `field` is known or an empty dict otherwise
+        """
         if not field:
             return {}
 
@@ -164,27 +190,28 @@ class Jira():
         except KeyError:
             logger.warning(f"Unknown field: {field}")
 
-    def _update_array_generic(self: object, update: dict, issue: dict, field: str, function: Callable):
-        _current = issue['fields'][field]
-        _project = issue['fields']['project']['key']
+        return {}
 
-        _from = function(_project, update['from'])
-        _to = function(_project, update['to'])
+    def _update_array(self: object, field: dict, update: dict, issue: dict) -> dict:
+        """
+        Update the provided issue based on the historical update of a field which is of
+        type `array`
+        :param field: Schema of the field to update
+        :param update: History item containing the update
+        :param issue: Issue to be updated
+        :returns: Updated issue
+        """
+        _items = field['schema']['items']
+        if _items == 'version':
+            return utils.update_array_generic(issue, update, field['id'], self._get_version)
 
-        if not _from:
-            return [item for item in _current if item['id'] != _to['id']]
+        if _items == 'component':
+            return utils.update_array_generic(issue, update, field['id'], self._get_component)
 
-        _current.append(_from)
-        return _current
+        if _items == 'string':
+            return update['fromString'].split(' ')
 
-    def _update_array(self: object, update: dict, issue: dict) -> dict:
-        if update['field'] == 'Fix Version':
-            return self._update_array_generic(update, issue, 'fixVersions', self._get_version)
-
-        if update['field'] == 'Component':
-            return self._update_array_generic(update, issue, 'components', self._get_component)
-
-        logger.error(f"Unsupport array type: {update['field']}")
+        logger.error(f"Unsupport array type: {update['field']} with schema {field}")
         return {}
 
     def _update_field(self: object, update: dict, issue: dict) -> dict:
@@ -213,7 +240,7 @@ class Jira():
         elif _field_type == 'user':
             _value = self._get_user(update['from'])
         elif _field_type == 'array':
-            _value = self._update_array(update, issue)
+            _value = self._update_array(field, update, issue)
         elif _field_type == 'number':
             _value = update['fromString']
         else:
