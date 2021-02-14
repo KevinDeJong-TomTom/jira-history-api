@@ -86,7 +86,7 @@ class TestJiraField(unittest.TestCase):
         _field = {'id': 'customfield_00001', 'name': 'Test Field', 'clauseNames': ['customfield_00001']}
         self.uut._jira.get_all_fields.return_value = [_field]
 
-        assert self.uut._get_field('invalid') is None
+        assert not self.uut._get_field('invalid')
         self.uut._jira.get_all_fields.assert_called_once()
 
     def test_get_invalid_field(self):
@@ -139,7 +139,7 @@ class TestJiraVersion(unittest.TestCase):
             'projectId': 1
         }]
 
-        assert self.uut._get_version(project='TEST', version_id=666) is None
+        assert not self.uut._get_version(project='TEST', version_id=666)
         self.uut._jira.get_project_versions.assert_called_once()
 
     def test_get_valid_version(self):
@@ -247,7 +247,7 @@ class TestJiraResolution(unittest.TestCase):
     def test_get_invalid_resolution(self):
         self.uut._jira.get_all_resolutions.return_value = None
 
-        assert self.uut._get_resolution(resolution_id='1') is None
+        assert not self.uut._get_resolution(resolution_id='1')
         self.uut._jira.get_all_resolutions.assert_called_once()
 
     def test_get_valid_resolution(self):
@@ -281,7 +281,7 @@ class TestJiraStatus(unittest.TestCase):
     def test_get_invalid_status(self):
         self.uut._jira.get_all_statuses.return_value = None
 
-        assert self.uut._get_status(status_id='1') is None
+        assert not self.uut._get_status(status_id='1')
         self.uut._jira.get_all_statuses.assert_called_once()
 
     def test_get_valid_status(self):
@@ -335,7 +335,8 @@ class TestJiraUpdate(unittest.TestCase):
                         'id': '2'
                     },
                     'assignee': {'displayName': 'bill'},
-                    'project': {'key': 'TEST'}
+                    'project': {'key': 'TEST'},
+                    'labels': ['old_label', 'new_label']
                 },
                 'changelog': {
                     'histories': []
@@ -410,7 +411,6 @@ class TestJiraUpdate(unittest.TestCase):
         assert _issue['fields']['summary'] == 'Uninteresting issue to solve'
         assert _issue['fields']['dice'] == '6'
 
-
         _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-11-30T09:00:00.000+0000'))
         assert _issue['fields']['description'] == 'Fixed my typo'
 
@@ -420,8 +420,6 @@ class TestJiraUpdate(unittest.TestCase):
 
         _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2019-01-01T15:01:00.000+0000'))
         assert _issue['fields']['dice'] == '3'
-
-
 
     def test_update_issue_status_field(self):
         self.uut._jira.get_all_fields.return_value = [{
@@ -500,12 +498,33 @@ class TestJiraUpdate(unittest.TestCase):
         _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000'))
         assert _issue['fields']['assignee']['displayName'] == 'bill'
 
-    def test_update_issue_fix_version(self):
+    def test_update_issue_array_string(self):
         self.uut._jira.get_all_fields.return_value = [{
-            'id': 'fixVersion',
-            'name': 'Fix Version/s',
+            'clauseNames': ['labels'],
+            'id': 'labels',
+            'name': 'Labels',
+            'schema': {'items': 'string', 'system': 'labels', 'type': 'array'}}]
+
+        self.test_issue['changelog']['histories'] = [
+            {
+                'id': '1',
+                'created': '2018-06-01T09:00:00.000+0000',
+                'items': [{'field': 'labels', 'fieldtype': 'jira', 'from': '', 'fromString': 'old_label', 'to': '', 'toString': 'old_label new_label'}]
+            }
+        ]
+
+        assert self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
+
+        _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
+        assert len(_issue['fields']['labels']) == 1
+        assert _issue['fields']['labels'] == ['old_label']
+
+    def test_update_issue_array_version(self):
+        self.uut._jira.get_all_fields.return_value = [{
             'clauseNames': ['fixVersion'],
-            'schema': {'type': 'array', 'items': 'version', 'system': 'fixVersion'}
+            'id': 'fixVersions',
+            'name': 'Fix Version/s',
+            'schema': {'items': 'version', 'system': 'fixVersions', 'type': 'array'}
         }]
 
         self.test_issue['changelog']['histories'] = [
@@ -523,8 +542,8 @@ class TestJiraUpdate(unittest.TestCase):
         assert self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T09:01:00.000+0000')) == self.test_issue
 
         _issue = self.uut._update_issue_at_date(issue=copy.deepcopy(self.test_issue), date=utils.field_to_datetime('2018-06-01T08:59:00.000+0000'))
-        assert len(_issue['fields']['fixVersion']) == 1
-        assert _issue['fields']['fixVersion'][0]['name'] == '1.0.0'
+        assert len(_issue['fields']['fixVersions']) == 1
+        assert _issue['fields']['fixVersions'][0]['name'] == '1.0.0'
 
 
 @contextlib.contextmanager
