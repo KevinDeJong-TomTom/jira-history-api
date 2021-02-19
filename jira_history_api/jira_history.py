@@ -22,7 +22,7 @@ import atlassian
 from jira_history_api import utils
 
 logger = logging.getLogger(__name__)
-
+JQL_CHUNK_SIZE = 50
 
 class Jira():
 
@@ -289,17 +289,33 @@ class Jira():
 
         return issue
 
-    def jql(self: object, jql: str, date: object = datetime.now()) -> list:
+    def jql(self: object, jql: str, fields: str = '*all', date: object = datetime.now()) -> list:
         """
         Retrieves issues from Jira using JQL and updates them to the status of the given date/time
         :param jql: JQL to retrieve issue with
         :param date: Specific date/time to unwind the issue to (optional)
         :returns: Issues reflecting the status of the specified date/time
         """
-        _issues = self._jira.jql(jql=jql, expand='changelog')['issues']
+        _all_issues = []
+
+        _start_index = 0
+        _fetch_next_chunk = True
+
+        while _fetch_next_chunk:
+            _issues = self._jira.jql(jql=jql,
+                                     start=_start_index,
+                                     expand='changelog',
+                                     fields=fields,
+                                     limit=JQL_CHUNK_SIZE)
+
+            _all_issues.extend(_issues['issues'])
+
+            _fetch_next_chunk = (len(_issues['issues']) == _issues['maxResults']
+                                 and _issues['total'] > _issues['maxResults'])
+            _start_index += JQL_CHUNK_SIZE
 
         result = []
-        for issue in _issues:
+        for issue in _all_issues:
             result.append(self._update_issue_at_date(issue, date))
 
         return result
